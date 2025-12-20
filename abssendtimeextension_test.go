@@ -4,6 +4,7 @@
 package rtp
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -95,5 +96,45 @@ func TestAbsSendTimeExtension_Estimate(t *testing.T) {
 			"[%d] Estimated time differs, expected: %v, estimated: %v (receive time: %v)",
 			i, inTime.UTC(), estimated.UTC(), toTime(in.receiveNTP).UTC(),
 		)
+	}
+}
+
+func TestAbsSendTimeExtensionMarshalTo(t *testing.T) {
+	ext := AbsSendTimeExtension{Timestamp: 123456}
+
+	buf := make([]byte, ext.MarshalSize())
+	n, err := ext.MarshalTo(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, ext.MarshalSize(), n)
+
+	expected, _ := ext.Marshal()
+	assert.Equal(t, expected, buf)
+
+	_, err = ext.MarshalTo(nil)
+	assert.ErrorIs(t, err, io.ErrShortBuffer)
+}
+
+//nolint:gochecknoglobals
+var (
+	absSendTimeSink    []byte
+	absSendTimeBuf     = make([]byte, absSendTimeExtensionSize)
+	absSendTimeSinkInt int
+)
+
+func BenchmarkAbsSendTimeExtension_Marshal(b *testing.B) {
+	ext := AbsSendTimeExtension{Timestamp: 123456}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		absSendTimeSink, _ = ext.Marshal()
+	}
+}
+
+func BenchmarkAbsSendTimeExtension_MarshalTo(b *testing.B) {
+	ext := AbsSendTimeExtension{Timestamp: 123456}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		absSendTimeSinkInt, _ = ext.MarshalTo(absSendTimeBuf)
 	}
 }

@@ -5,6 +5,7 @@ package rtp
 
 import (
 	"encoding/hex"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -456,4 +457,71 @@ func FuzzVLAUnmarshal(f *testing.F) {
 			t.Skip() // If the function returns an error, we skip the test case
 		}
 	})
+}
+
+func TestVLAMarshalTo(t *testing.T) {
+	vla := &VLA{
+		RTPStreamID:    0,
+		RTPStreamCount: 3,
+		ActiveSpatialLayer: []SpatialLayer{
+			{RTPStreamID: 0, SpatialID: 0, TargetBitrates: []int{150}},
+			{RTPStreamID: 1, SpatialID: 0, TargetBitrates: []int{240, 400}},
+			{RTPStreamID: 2, SpatialID: 0, TargetBitrates: []int{720, 1200}},
+		},
+	}
+
+	size, err := vla.MarshalSize()
+	assert.NoError(t, err)
+
+	buf := make([]byte, size)
+	n, err := vla.MarshalTo(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, size, n)
+
+	expected, _ := vla.Marshal()
+	assert.Equal(t, expected, buf)
+
+	_, err = vla.MarshalTo(nil)
+	assert.ErrorIs(t, err, io.ErrShortBuffer)
+}
+
+//nolint:gochecknoglobals
+var (
+	vlaSink    []byte
+	vlaBuf     = make([]byte, 256)
+	vlaSinkInt int
+)
+
+func BenchmarkVLA_Marshal(b *testing.B) {
+	vla := &VLA{
+		RTPStreamID:    0,
+		RTPStreamCount: 3,
+		ActiveSpatialLayer: []SpatialLayer{
+			{RTPStreamID: 0, SpatialID: 0, TargetBitrates: []int{150}},
+			{RTPStreamID: 1, SpatialID: 0, TargetBitrates: []int{240, 400}},
+			{RTPStreamID: 2, SpatialID: 0, TargetBitrates: []int{720, 1200}},
+		},
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		vlaSink, _ = vla.Marshal()
+	}
+}
+
+func BenchmarkVLA_MarshalTo(b *testing.B) {
+	vla := &VLA{
+		RTPStreamID:    0,
+		RTPStreamCount: 3,
+		ActiveSpatialLayer: []SpatialLayer{
+			{RTPStreamID: 0, SpatialID: 0, TargetBitrates: []int{150}},
+			{RTPStreamID: 1, SpatialID: 0, TargetBitrates: []int{240, 400}},
+			{RTPStreamID: 2, SpatialID: 0, TargetBitrates: []int{720, 1200}},
+		},
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		vlaSinkInt, _ = vla.MarshalTo(vlaBuf)
+	}
 }
